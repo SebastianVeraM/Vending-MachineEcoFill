@@ -1,0 +1,313 @@
+/*
+ * Interruption_LCD.cpp
+ *
+ * Created: 12/10/2021 04:22:12 p. m.
+ * Author : Sebastian Vera Morales
+ * 
+ * Conexiones del proyecto
+ * 
+ * LCD
+ * 
+ * MÓDULO I2C PIN   ARDUINO NANO PIN
+ *      GND               GND
+ *      VCC               5V
+ *      SDA               A4
+ *      SCL               A5
+ * 
+ * MONEDERO MULTIMONEDA
+ * 
+ *  PIN MONEDERO    ARDUINO NANO PIN
+ *      DC12V           
+ *      COIN              D2
+ *      GND
+ *      
+ *      
+ *     BOTONES     ARDUINO NANO PIN
+ *      BOTÓN 1          A0
+ *      BOTÓN 2          A1
+ *
+ */  
+//                                                DEFINICIONES
+//--------------------------------------------------------------------------------------------------------
+#define periodo_1 1000
+#define periodo_2 1000
+#define periodo_3 30
+#define periodo_4 30
+#define periodo_5 30
+//                                               LIBRERÍAS
+//--------------------------------------------------------------------------------------------------------
+#include <avr/io.h> 
+#include <avr/interrupt.h>//SE AGREGA LA LIBRERÍA DE LAS INTERRUPCIONES
+#include <util/delay.h> 
+#include <Wire.h> 
+#include <LiquidCrystal_I2C.h>
+//                                                VARIABLES
+//--------------------------------------------------------------------------------------------------------
+LiquidCrystal_I2C lcd(0x27,20,4);// set the LCD address to 0x27 for a 16 chars and 2 line display
+volatile bool flag1 = false, flag2 = false;
+//Constantes para las monedas.
+const short int UnPeso = 2, DosPesos = 4, CincoPesos = 6, DiezPesos = 8;
+//Variables.
+//unsigned long T = 8000;
+unsigned long tiempoAnterior = 0; // almacena la ultima vez que se lanzo nuestro evento
+volatile unsigned long MillisUltPulso = 0;
+unsigned long tiempo_1 = 0, tiempo_2 = 0, tiempo_3 = 0, tiempo_4 = 0, tiempo_5 = 0;
+unsigned long dl1 = 0, dl2 = 0, dl3 = 0, dl4 = 0, dl5 = 0;
+short const int E1 = A0, E2 = A1, S1 = 3,S2 = 4;
+volatile int pulso = 0;
+int PulsosAcum = 0, CreditoAcum = 0, MaxTimePulse = 200;
+
+//                                                  FUNCIONES
+//--------------------------------------------------------------------------------------------------------
+void(* resetFunc) (void) = 0;
+
+void Saldo()
+{
+  String cadena = (String) CreditoAcum;
+  lcd.setCursor(2,0);
+  lcd.print("Saldo disponible:");
+  lcd.setCursor(8,1);
+  lcd.print("$");
+  lcd.setCursor(9,1);
+  lcd.print(cadena);
+  lcd.setCursor(4,3);
+  lcd.print("NO DA CAMBIO");
+}
+
+void Llenado()
+{
+  CreditoAcum -= 10;
+  lcd.setCursor(2,0);//
+  lcd.print("Espere a que se");
+  lcd.setCursor(3,1);
+  lcd.print("llene su envase");
+  lcd.setCursor(4,3);
+  lcd.print("NO DA CAMBIO");
+}
+
+void Finalizado()
+{
+  lcd.clear();
+  lcd.setCursor(2,0);//
+  lcd.print("Recoja su envase");
+  lcd.setCursor(3,1);
+  lcd.print("de la charola");
+  lcd.setCursor(4,3);
+  lcd.print("NO DA CAMBIO");
+}
+
+void Pantalla1()
+{
+  lcd.setCursor(2,0);
+  lcd.print("Maquina EcoFill");
+  lcd.setCursor(3,1);
+  lcd.print("Kelco Quimicos");
+  lcd.setCursor(1,2);
+  lcd.print("Por favor inserte");
+  lcd.setCursor(4,3);
+  lcd.print("las monedas ");
+}
+
+void Pantalla2()
+{
+  lcd.setCursor(0,0);
+  lcd.print("Venta minima 1 litro");
+  lcd.setCursor(4,1);
+  lcd.print("por producto");
+  lcd.setCursor(0,2);
+  lcd.print("Introduzca su envase");
+  lcd.setCursor(4,3);
+  lcd.print("NO DA CAMBIO");
+}
+
+void Sinsaldo()
+{
+  lcd.setCursor(3,0);
+  lcd.print("Noy hay ningun");
+  lcd.setCursor(2,1);
+  lcd.print("saldo disponible");
+  lcd.setCursor(1,2);
+  lcd.print("Por favor inserte");
+  lcd.setCursor(4,3);
+  lcd.print("las monedas");
+}
+
+void Pocosaldo()
+{
+  lcd.setCursor(2,0);
+  lcd.print("Saldo disponible");
+  lcd.setCursor(4,1);
+  lcd.print("insuficiente");
+  lcd.setCursor(2,2);
+  lcd.print("Por favor inserte");
+  lcd.setCursor(4,3);
+  lcd.print("mas monedas");
+}
+
+void Evalvula(int B,int T)
+{
+  /*digitalWrite(B,HIGH);
+  if (millis() - tiempoAnterior >= T) 
+  {
+    tiempoAnterior = millis();
+    digitalWrite(B,LOW);
+  }*/
+  TCCR1A = 0;// El registro de control A queda todo en 0, pines OC1A y OC1B deshabilitados
+  TCCR1B = 0;//limpia el registrador
+  TCCR1B |= (1<<CS10)|(1 << CS12);// configura un prescaler para 1024: CS12 = 1 e CS10 = 1
+  TIMSK1 |= B00000010;        //Set OCIE1A to 1 so we enable compare match A 
+  OCR1A = (((16000000*T)/1024)-1);//31250;             //Finally we set compare register A to this value  
+  digitalWrite(B,HIGH);
+}
+
+void Monedero()
+{
+   unsigned long lastTime = millis() - MillisUltPulso;//Calculamos los milisegundos de la ultima ejecusion menos el ultimo tiempo que se genero un pulso.
+  //Validamos si hay algun puslo, si es asi tambien se valida que el ultimo tiempo asignado sea mayor a la cantidad de milisegundos establecidos.
+  if((pulso > 0) && (lastTime >= MaxTimePulse))
+  {
+    //La cantidad de creditos es el contador y acumulador de pulsos, hasta que se cumpla alguna condicion.
+    PulsosAcum = pulso;
+    pulso = 0;
+  }
+  
+  switch (PulsosAcum)
+  {
+    case UnPeso:
+    PulsosAcum = 0;
+    CreditoAcum += 1;
+    lcd.clear();
+    break;
+
+    case DosPesos:
+    PulsosAcum = 0;
+    CreditoAcum += 2;
+    lcd.clear();
+    break;
+    
+    case CincoPesos:
+    PulsosAcum = 0;
+    CreditoAcum += 5;
+    lcd.clear();
+    break;
+
+    case DiezPesos:
+    PulsosAcum = 0;
+    CreditoAcum += 10;
+    lcd.clear();
+    break;
+  }
+}
+//                                                                  INTERRUPCIONES
+//--------------------------------------------------------------------------------------------------------------------------------------------
+ISR (INT0_vect)//INTERRUPCIÓN EXTERNA 0 PARA EL CONTEO DE PULSOS DE PARTE DEL MONEDERO MULTIMONEDA
+{
+  pulso++;   // Cada vez que insertamos una moneda valida, incrementamos el contador de monedas y encendemos la variable de control,
+  MillisUltPulso = millis();
+}
+
+//INTERRUPCIÓN POR CAMBIO DE PIN
+ISR (PCINT1_vect)//SE REALIZA LA ACCIÓN CUANDO UNA INTERRUPCIÓN CORRESPONDIENTE AL VECTOR PCINT2 SE ACTIVE ENTONCES.....
+{//PARA PODER DIFERENCIAR ENTRE LOS PINES PARA QUE HAGAN UNA ACCIÓN ES ESPECÍFICO SE NECESITA PREGUNTAR POR EL PIN DE DONDE VIENE LA SEÑAL
+  if ((digitalRead(E1) == HIGH))//SÍ LA INTERRUPCIÓN PROVIENE DEL PIN A0 ENTONCES HACE LA ACCIÓN DENTRO DE LA CONDICIÓN
+    flag1 = true;
+  else if ((digitalRead(E2) == HIGH))//SÍ LA INTERRUPCIÓN PROVIENE DEL PIN A1 ENTONCES HACE LA ACCIÓN DENTRO DE LA CONDICIÓN
+    flag2 = true;
+} 
+
+ISR(TIMER1_COMPA_vect)                              //interrupcion del TIMER1 
+{
+  TCNT1 = 0;// Renicia TIMER
+  digitalWrite(S1,LOW); //invierte el estado do led
+  digitalWrite(S2,LOW); //invierte el estado do led
+}
+//                                                                  CONFIGURACIÓN
+//--------------------------------------------------------------------------------------------------------------------------------------------
+void setup() 
+{
+  pinMode(E1,INPUT);
+  pinMode(E2,INPUT);
+  pinMode(S1,OUTPUT);
+  pinMode(S2,OUTPUT);
+  cli();//SE DESACTIVAN LAS INTERRUPCIONES
+  EIMSK |= (1<<INT0);//SE CONFIGURA LA INTERRUPCIÓN EXTERNA 0
+  EICRA |= (1<<ISC01)|(1<<ISC00);//CUANDO SE DETECTE UN FLANCO DE SUBIDA PARA INT0
+  PCIFR = 0x00;//SE LIMPIAN LAS BANDERAS
+  PCICR |= (1<<PCIE1);//SE ACTIVA EL BIT PCIE0 DEL REGISTRO DE INTERRUPCIONES PARA ELEGIR EL CONJUNTO DE INTERRUPCIONES QUE SE VA A USAR, 
+                      //EN ESTE CASO SE CAMBIO AL PCIE1 YA QUE ES DONDE SE ENCUENTRAN LAS INTERRUPCIONES PCINT8 Y PCINT9
+  PCMSK1 |= (1<<PCINT8)|(1<<PCINT9);//SE ACTIVAN LAS INTERRUPCIONES PCINT8 Y PCINT9 DEL REGISTRO PCMSK1
+  sei();//SE ACTIVAN NUEVAMENTE LAS INSTRUCCIONES
+  //Se inicializa el LCD
+  lcd.init();      
+  lcd.backlight();           
+   
+}
+//                                                                      BUCLE
+//---------------------------------------------------------------------------------------------------------------------------------------------
+void loop() 
+{
+  Monedero();
+  if (CreditoAcum > 0)
+  {
+    Saldo();
+    if ((flag1 == true) && CreditoAcum >= 10)//SÍ LA INTERRUPCIÓN PROVIENE DEL PIN A0 ENTONCES HACE LA ACCIÓN DENTRO DE LA CONDICIÓN
+    {
+      flag1 = false;
+      flag2 = false;
+      lcd.clear();
+      Llenado();
+      Evalvula(S1,5);
+      //digitalWrite(S1,HIGH);
+      //_delay_ms(25000);
+      //digitalWrite(S1,LOW);
+      lcd.clear();
+      Finalizado();
+      delay(2000);
+      lcd.clear();
+      //resetFunc();
+    }
+    else if ((flag2 == true) && CreditoAcum >= 10)//PERO SÍ PROVIENE DEL PIN A1 ENTONCES HACE LA SIGUIENTE ACCIÓN DENTRO DE LA CONDICIÓN
+    {
+      flag1 = false;
+      flag2 = false;
+      lcd.clear();
+      Llenado();
+      Evalvula(S2,5);
+      //digitalWrite(S2,HIGH);
+      //_delay_ms(12000);
+      //digitalWrite(S2,LOW);
+      lcd.clear();
+      Finalizado();
+      delay(2000);
+      lcd.clear();
+      //resetFunc();
+    }
+    else if ((flag1 == true || flag2 == true) && (CreditoAcum < 10))
+    {
+      flag1 = false;
+      flag2 = false;
+      lcd.clear();
+      Pocosaldo();
+      delay(2500);
+      lcd.clear();
+    }
+  }
+  else if (flag1 == true || flag2 == true)
+  {
+    flag1 = false;
+    flag2 = false;
+    lcd.clear();
+    Sinsaldo();
+    delay(2500);
+    lcd.clear();
+  }
+  else 
+  {
+    Pantalla1();
+    delay(3000);
+    lcd.clear();
+    Pantalla2();
+    delay(3000);
+    lcd.clear();
+  }
+}
