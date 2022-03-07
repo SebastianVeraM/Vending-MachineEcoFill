@@ -169,20 +169,6 @@ void Evalvula(const short int B,float L)
     //F = (String) flow_Lmin;
     float Vl = (volume/L)*100; 
     V = (String) Vl;//Porcentaje de llenado
-    if (volume >= L)
-    {
-      digitalWrite(B,LOW);
-      lcd.setCursor(5,2);
-      lcd.print("Llenado al:");
-      lcd.setCursor(7,3);
-      lcd.print("100%");
-      //_delay_ms(1000);
-      volume = 0;
-      frequency = 0;
-      flow_Lmin = 0;
-      t0 = 0;
-      flag3 = true;
-    }
     lcd.setCursor(0,0);
     lcd.print("No retire su envase");
     lcd.setCursor(1,1);
@@ -193,6 +179,21 @@ void Evalvula(const short int B,float L)
     lcd.print(V);
     lcd.setCursor(11,3);
     lcd.print("%");
+    if (volume >= L)
+    {
+      digitalWrite(B,LOW);
+      lcd.setCursor(5,2);
+      lcd.print("Llenado al:");
+      lcd.setCursor(7,3);
+      lcd.print("100%");
+      //_delay_ms(1000);
+      volume = 0;
+      pulseConter = 0;
+      frequency = 0;
+      flow_Lmin = 0;
+      t0 = 0;
+      flag3 = true;
+    }
   }while(flag3 == false);
 }
 
@@ -356,7 +357,7 @@ void loop()
       flag2 = false;
       lcd.clear();
       Llenado();
-      Evalvula(S2,0.93);//9 segundos 0.95 Lt
+      Evalvula(S2,0.91);//9 segundos 0.95 Lt
       lcd.clear();
       Finalizado();
       _delay_ms(2000);
