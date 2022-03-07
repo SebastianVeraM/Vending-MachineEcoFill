@@ -63,7 +63,7 @@ void Pantalla1();
 void Pantalla2();
 void Sinsaldo();
 void Pocosaldo();
-void Evalvula(int B, float L);
+void Evalvula(const short int B, float L);
 void Monedero();
 void Mensaje();
 float GetFrequency();
@@ -156,13 +156,13 @@ void Pocosaldo()
   lcd.print("mas monedas");
 }
 
-void Evalvula(int B,float L)
+void Evalvula(const short int B,float L)
 { 
   flag3 = false;
   lcd.clear();
+  digitalWrite(B,HIGH);
   do
   {
-    digitalWrite(B,HIGH);
     frequency = GetFrequency();
     flow_Lmin = frequency/factorK;
     SumVolume(flow_Lmin);
@@ -193,23 +193,6 @@ void Evalvula(int B,float L)
     lcd.print(V);
     lcd.setCursor(11,3);
     lcd.print("%");
-    /*if ((flow_Lmin == 0) || (flow_Lmin <= 0.5))
-    {
-      digitalWrite(B,LOW);
-      lcd.clear();
-      lcd.setCursor(1,0);
-      lcd.print("No hay suficiente");
-      lcd.setCursor(0,1);
-      lcd.print("agua para llenar su");
-      lcd.setCursor(1,2);
-      lcd.print("envase de producto");
-      _delay_ms(2000);
-      volume = 0;
-      frequency = 0;
-      flow_Lmin = 0;
-      t0 = 0;
-      flag3 = true;
-    }*/
   }while(flag3 == false);
 }
 
@@ -227,35 +210,35 @@ void Monedero()
     case UnPeso:
     PulsosAcum = 0;
     CreditoAcum += 1;
-    EEPROM.put(0,CreditoAcum);
+    //EEPROM.put(0,CreditoAcum);
     lcd.clear();
     break;
 
     case DosPesos:
     PulsosAcum = 0;
     CreditoAcum += 2;
-    EEPROM.put(0,CreditoAcum);
+    //EEPROM.put(0,CreditoAcum);
     lcd.clear();
     break;
     
     case CincoPesos:
     PulsosAcum = 0;
     CreditoAcum += 5;
-    EEPROM.put(0,CreditoAcum);
+    //EEPROM.put(0,CreditoAcum);
     lcd.clear();
     break;
 
     case DiezPesos:
     PulsosAcum = 0;
     CreditoAcum += 10;
-    EEPROM.put(0,CreditoAcum);
+    //EEPROM.put(0,CreditoAcum);
     lcd.clear();
     break;
   }
 }
 void Mensaje()
 {
-  if (CreditoAcum > 0 && CreditoAcum < 10)
+  if ((flag1 == true || flag2 == true) && (CreditoAcum > 0 && CreditoAcum < 10))
   {
     flag1 = false;
     flag2 = false;
@@ -263,17 +246,6 @@ void Mensaje()
     Pocosaldo();
     _delay_ms(2000);
     lcd.clear();
-  }
-    
-  else if (CreditoAcum == 0)
-  {
-    flag1 = false;
-    flag2 = false;
-    lcd.clear();
-    Sinsaldo();
-    _delay_ms(2000);
-    lcd.clear();
-    reti();
   }
 }
 
@@ -284,7 +256,7 @@ float GetFrequency()
   //delay(measureInterval);
   Contador = millis() + measureInterval;
   do{
-      __asm__("nop\n\t"); 
+      //__asm__("nop\n\t"); 
     }while(Contador >= millis());
   Contador = 0;
   cli();
@@ -311,14 +283,14 @@ ISR (PCINT1_vect)//SE REALIZA LA ACCIÓN CUANDO UNA INTERRUPCIÓN CORRESPONDIENT
   if ((digitalRead(E1) == HIGH))//SÍ LA INTERRUPCIÓN PROVIENE DEL PIN A0 ENTONCES HACE LA ACCIÓN DENTRO DE LA CONDICIÓN
   {
     flag1 = true;
-    Mensaje();
-    lcd.clear();
+    //Mensaje();
+    //lcd.clear();
   }
   else if ((digitalRead(E2) == HIGH))//SÍ LA INTERRUPCIÓN PROVIENE DEL PIN A1 ENTONCES HACE LA ACCIÓN DENTRO DE LA CONDICIÓN
   {
     flag2 = true;
-    Mensaje();
-    lcd.clear();
+    //Mensaje();
+    //lcd.clear();
   }
 } 
 
@@ -360,9 +332,9 @@ void loop()
   if (CreditoAcum > 0)
   {
     Saldo();
+    Mensaje();
     if ((flag1 == true) && CreditoAcum >= 10)//SÍ LA INTERRUPCIÓN PROVIENE DEL PIN A0 ENTONCES HACE LA ACCIÓN DENTRO DE LA CONDICIÓN
     {
-      CreditoAcum -= 10;
       flag1 = false;
       flag2 = false;
       lcd.clear();
@@ -372,12 +344,12 @@ void loop()
       Finalizado();
       _delay_ms(2000);
       lcd.clear();
+      CreditoAcum -= 10;
       //if (CreditoAcum == 0)
-      Reset();
+      //  Reset();
     }
     else if ((flag2 == true) && CreditoAcum >= 10)//SÍ LA INTERRUPCIÓN PROVIENE DEL PIN A0 ENTONCES HACE LA ACCIÓN DENTRO DE LA CONDICIÓN
     {
-      CreditoAcum -= 10;
       flag1 = false;
       flag2 = false;
       lcd.clear();
@@ -387,9 +359,20 @@ void loop()
       Finalizado();
       _delay_ms(2000);
       lcd.clear();
+      CreditoAcum -= 10;
       //if (CreditoAcum == 0)
-      Reset();
+      //  Reset();
     }
+  }
+  
+  else if ((flag1 == true || flag2 == true) CreditoAcum == 0)
+  {
+    flag1 = false;
+    flag2 = false;
+    lcd.clear();
+    Sinsaldo();
+    _delay_ms(2000);
+    lcd.clear();
   }
      
   else
