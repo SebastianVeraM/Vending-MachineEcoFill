@@ -210,28 +210,28 @@ void Monedero()
     case UnPeso:
     PulsosAcum = 0;
     CreditoAcum += 1;
-    //EEPROM.put(0,CreditoAcum);
+    EEPROM.put(0,CreditoAcum);
     lcd.clear();
     break;
 
     case DosPesos:
     PulsosAcum = 0;
     CreditoAcum += 2;
-    //EEPROM.put(0,CreditoAcum);
+    EEPROM.put(0,CreditoAcum);
     lcd.clear();
     break;
     
     case CincoPesos:
     PulsosAcum = 0;
     CreditoAcum += 5;
-    //EEPROM.put(0,CreditoAcum);
+    EEPROM.put(0,CreditoAcum);
     lcd.clear();
     break;
 
     case DiezPesos:
     PulsosAcum = 0;
     CreditoAcum += 10;
-    //EEPROM.put(0,CreditoAcum);
+    EEPROM.put(0,CreditoAcum);
     lcd.clear();
     break;
   }
@@ -321,7 +321,7 @@ void setup()
   sei();//SE ACTIVAN NUEVAMENTE LAS INSTRUCCIONES  
   lcd.begin(20,4);
   lcd.clear();
-  //EEPROM.get(0,CreditoAcum);
+  EEPROM.get(0,CreditoAcum);
   //CreditoAcum = 0;
 }
 //                                                                      BUCLE
@@ -345,8 +345,10 @@ void loop()
       _delay_ms(2000);
       lcd.clear();
       CreditoAcum -= 10;
-      //if (CreditoAcum == 0)
-      //  Reset();
+      EEPROM.put(0,CreditoAcum);
+      if (CreditoAcum == 0)
+        EEPROM.update(0,CreditoAcum);  
+      Reset();
     }
     else if ((flag2 == true) && CreditoAcum >= 10)//SÍ LA INTERRUPCIÓN PROVIENE DEL PIN A0 ENTONCES HACE LA ACCIÓN DENTRO DE LA CONDICIÓN
     {
@@ -360,12 +362,14 @@ void loop()
       _delay_ms(2000);
       lcd.clear();
       CreditoAcum -= 10;
-      //if (CreditoAcum == 0)
-      //  Reset();
+      EEPROM.put(0,CreditoAcum);
+      if (CreditoAcum == 0)
+        EEPROM.update(0,CreditoAcum);  
+      Reset();
     }
   }
   
-  else if ((flag1 == true || flag2 == true) CreditoAcum == 0)
+  else if ((flag1 == true || flag2 == true) && CreditoAcum == 0)
   {
     flag1 = false;
     flag2 = false;
