@@ -50,7 +50,7 @@ const short int E1 = A0, E2 = A1, S1 = 3, S2 = 4, Q = 0;
 short int PulsosAcum = 0, CreditoAcum = 0, MaxTimePulse = 190;
 volatile int pulso = 0, pulseConter;
 const float factorK = 6.6;
-float volume = 0, frequency = 0, flow_Lmin = 0;
+float volume = 0, frequency = 0, flow_Lmin = 0,Vl = 0;
 volatile unsigned long MillisUltPulso = 0;
 unsigned long Contador = 0, t0 = 0;
 String F,Qf,t,V;
@@ -166,35 +166,36 @@ void Evalvula(const short int B,float L)
     frequency = GetFrequency();
     flow_Lmin = frequency/factorK;
     SumVolume(flow_Lmin);
-    //F = (String) flow_Lmin;
-    float Vl = (volume/L)*100; 
+    Vl = (volume/L)*100; 
     V = (String) Vl;//Porcentaje de llenado
-    lcd.setCursor(0,0);
+    /*lcd.setCursor(0,0);
     lcd.print("No retire su envase");
     lcd.setCursor(1,1);
-    lcd.print("mientras se llena");
+    lcd.print("mientras se llena");*/
     lcd.setCursor(5,2);
     lcd.print("Llenado al:");
     lcd.setCursor(7,3);
     lcd.print(V);
     lcd.setCursor(11,3);
-    lcd.print("%");
+    lcd.print("%");   
     if (volume >= L)
     {
       digitalWrite(B,LOW);
-      lcd.setCursor(5,2);
-      lcd.print("Llenado al:");
-      lcd.setCursor(7,3);
-      lcd.print("100%");
-      //_delay_ms(1000);
-      volume = 0;
-      pulseConter = 0;
-      frequency = 0;
-      flow_Lmin = 0;
-      t0 = 0;
       flag3 = true;
     }
   }while(flag3 == false);
+  //lcd.setCursor(5,2);
+  //lcd.print("Llenado al:");
+  lcd.clear();
+  lcd.setCursor(7,3);
+  lcd.print("100%");
+  _delay_ms(1000);
+  volume = 0;
+  pulseConter = 0;
+  frequency = 0;
+  flow_Lmin = 0;
+  Vl = 0;
+  t0 = 0;
 }
 
 void Monedero()
@@ -340,7 +341,7 @@ void loop()
       flag2 = false;
       lcd.clear();
       Llenado();
-      Evalvula(S1,0.77);//25 segundos
+      Evalvula(S1,0.4);//0.7 ---> 1 litro | 0.6 ---> 0.83 litros | 0.5 ---> 0.79 litros | 0.4  --> 0.61 litros
       lcd.clear();
       Finalizado();
       _delay_ms(2000);
@@ -357,7 +358,7 @@ void loop()
       flag2 = false;
       lcd.clear();
       Llenado();
-      Evalvula(S2,0.91);//9 segundos 0.95 Lt
+      Evalvula(S2,0.7);//0.91 ---> 1 litro | 0.7 ---> 0.77 litros | 0. --->  litros | 0.  -->  litros
       lcd.clear();
       Finalizado();
       _delay_ms(2000);
